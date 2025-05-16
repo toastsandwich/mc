@@ -139,16 +139,7 @@ func mainPut(cliCtx *cli.Context) (e error) {
 
 	putURLsCh := make(chan URLs, 10000)
 	var totalObjects, totalBytes int64
-
-	// Store a progress bar or an accounter
-	var pg ProgressReader
-
-	// Enable progress bar reader only during default mode.
-	if !globalQuiet && !globalJSON { // set up progress bar
-		pg = newProgressBar(totalBytes)
-	} else {
-		pg = newAccounter(totalBytes)
-	}
+	var pg ProgressReader = newAccounter(totalBytes)
 	go func() {
 		opts := prepareCopyURLsOpts{
 			sourceURLs:              sourceURLs,
@@ -217,22 +208,5 @@ func printPutURLsError(putURLs *URLs) {
 	} else {
 		errorIf(putURLs.Error.Trace(),
 			"Unable to upload.")
-	}
-}
-
-func showLastProgressBar(pg ProgressReader, e error) {
-	if e != nil {
-		// We only erase a line if we are displaying a progress bar
-		if !globalQuiet && !globalJSON {
-			console.Eraseline()
-		}
-		return
-	}
-	if progressReader, ok := pg.(*progressBar); ok {
-		progressReader.Finish()
-	} else {
-		if accntReader, ok := pg.(*accounter); ok {
-			printMsg(accntReader.Stat())
-		}
 	}
 }

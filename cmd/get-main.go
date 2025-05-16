@@ -85,14 +85,7 @@ func mainGet(cliCtx *cli.Context) (e error) {
 	getURLsCh := make(chan URLs, 10000)
 	var totalObjects, totalBytes int64
 
-	// Store a progress bar or an accounter
-	var pg ProgressReader
-	// Enable progress bar reader only during default mode.
-	if !globalQuiet && !globalJSON { // set up progress bar
-		pg = newProgressBar(totalBytes)
-	} else {
-		pg = newAccounter(totalBytes)
-	}
+	var pg ProgressReader = newAccounter(totalBytes)
 	go func() {
 		opts := prepareCopyURLsOpts{
 			sourceURLs:              sourceURLs,

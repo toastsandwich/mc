@@ -21,7 +21,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"path/filepath"
 	"strings"
 
@@ -217,20 +216,6 @@ func (c copyMessage) JSON() string {
 	return string(copyMessageBytes)
 }
 
-// Progress - an interface which describes current amount
-// of data written.
-type Progress interface {
-	Get() int64
-	SetTotal(int64)
-}
-
-// ProgressReader can be used to update the progress of
-// an on-going transfer progress.
-type ProgressReader interface {
-	io.Reader
-	Progress
-}
-
 // doCopy - Copy a single file from source to destination
 func doCopy(ctx context.Context, copyOpts doCopyOpts) URLs {
 	if copyOpts.cpURLs.Error != nil {
@@ -244,19 +229,14 @@ func doCopy(ctx context.Context, copyOpts doCopyOpts) URLs {
 	targetURL := copyOpts.cpURLs.TargetContent.URL
 	length := copyOpts.cpURLs.SourceContent.Size
 	sourcePath := filepath.ToSlash(filepath.Join(sourceAlias, sourceURL.Path))
-
-	if progressReader, ok := copyOpts.pg.(*progressBar); ok {
-		progressReader.SetCaption(copyOpts.cpURLs.SourceContent.URL.String() + ":")
-	} else {
-		targetPath := filepath.ToSlash(filepath.Join(targetAlias, targetURL.Path))
-		printMsg(copyMessage{
-			Source:     sourcePath,
-			Target:     targetPath,
-			Size:       length,
-			TotalCount: copyOpts.cpURLs.TotalCount,
-			TotalSize:  copyOpts.cpURLs.TotalSize,
-		})
-	}
+	targetPath := filepath.ToSlash(filepath.Join(targetAlias, targetURL.Path))
+	printMsg(copyMessage{
+		Source:     sourcePath,
+		Target:     targetPath,
+		Size:       length,
+		TotalCount: copyOpts.cpURLs.TotalCount,
+		TotalSize:  copyOpts.cpURLs.TotalSize,
+	})
 
 	urls := uploadSourceToTargetURL(ctx, uploadSourceToTargetURLOpts{
 		urls:                copyOpts.cpURLs,
@@ -277,11 +257,7 @@ func doCopy(ctx context.Context, copyOpts doCopyOpts) URLs {
 }
 
 // doCopyFake - Perform a fake copy to update the progress bar appropriately.
-func doCopyFake(cpURLs URLs, pg Progress) URLs {
-	if progressReader, ok := pg.(*progressBar); ok {
-		progressReader.Add64(cpURLs.SourceContent.Size)
-	}
-
+func doCopyFake(cpURLs URLs) URLs {
 	return cpURLs
 }
 
@@ -310,14 +286,7 @@ func doCopySession(ctx context.Context, cancelCopy context.CancelFunc, cli *cli.
 	errSeen := false
 
 	// Store a progress bar or an accounter
-	var pg ProgressReader
-
-	// Enable progress bar reader only during default mode.
-	if !globalQuiet && !globalJSON { // set up progress bar
-		pg = newProgressBar(totalBytes)
-	} else {
-		pg = newAccounter(totalBytes)
-	}
+	var pg ProgressReader = newAccounter(totalBytes)
 	sourceURLs := cli.Args()[:len(cli.Args())-1]
 	targetURL := cli.Args()[len(cli.Args())-1] // Last one is target
 
@@ -434,7 +403,7 @@ func doCopySession(ctx context.Context, cancelCopy context.CancelFunc, cli *cli.
 				// Verify if previously copied, notify progress bar.
 				if isCopied != nil && isCopied(cpURLs.SourceContent.URL.String()) {
 					parallel.queueTask(func() URLs {
-						return doCopyFake(cpURLs, pg)
+						return doCopyFake(cpURLs)
 					}, 0)
 				} else {
 					// Print the copy resume summary once in start
@@ -492,41 +461,28 @@ loop:
 				}
 
 				errSeen = true
-				if progressReader, pgok := pg.(*progressBar); pgok {
-					if progressReader.Get() > 0 {
-						writeContSize := (int)(cpURLs.SourceContent.Size)
-						totalPGSize := (int)(progressReader.Total)
-						written := (int)(progressReader.Get())
+				if accounterReader, aok := pg.(*accounter); aok {
+					if accounterReader.Get() > 0 {
+						writeContSize := (cpURLs.SourceContent.Size)
+						totalPGSize := (accounterReader.total)
+						written := (accounterReader.Get())
 						if totalPGSize > writeContSize && written > writeContSize {
-							progressReader.Set((written - writeContSize))
-							progressReader.Update()
+							accounterReader.Set((written - writeContSize))
+							accounterReader.Update()
 						}
 					}
 				}
-
 			}
 		}
 	}
-
-	if progressReader, ok := pg.(*progressBar); ok {
+	if accntReader, ok := pg.(*accounter); ok {
 		if errSeen || (cpAllFilesErr && totalObjects > 0) {
 			// We only erase a line if we are displaying a progress bar
 			if !globalQuiet && !globalJSON {
 				console.Eraseline()
 			}
-		} else if progressReader.Get() > 0 {
-			progressReader.Finish()
-		}
-	} else {
-		if accntReader, ok := pg.(*accounter); ok {
-			if errSeen || (cpAllFilesErr && totalObjects > 0) {
-				// We only erase a line if we are displaying a progress bar
-				if !globalQuiet && !globalJSON {
-					console.Eraseline()
-				}
-			} else {
-				printMsg(accntReader.Stat())
-			}
+		} else {
+			printMsg(accntReader.Stat())
 		}
 	}
 

@@ -138,7 +138,7 @@ func (p pipeMessage) JSON() string {
 	return string(pipeMessageBytes)
 }
 
-func pipe(ctx *cli.Context, targetURL string, encKeyDB map[string][]prefixSSEPair, meta map[string]string, quiet bool, json bool) *probe.Error {
+func pipe(ctx *cli.Context, targetURL string, encKeyDB map[string][]prefixSSEPair, meta map[string]string) *probe.Error {
 	// If possible increase the pipe buffer size
 	if e := increasePipeBufferSize(os.Stdin, ctx.Int("pipe-max-size")); e != nil {
 		fatalIf(probe.NewError(e), "Unable to increase custom pipe-max-size")
@@ -182,14 +182,7 @@ func pipe(ctx *cli.Context, targetURL string, encKeyDB map[string][]prefixSSEPai
 		checksum:         checksum,
 	}
 
-	var reader io.Reader
-	if !quiet && !json {
-		pg := newProgressBar(0)
-		reader = io.TeeReader(os.Stdin, pg)
-	} else {
-		reader = os.Stdin
-	}
-
+	var reader io.Reader = os.Stdin
 	n, err := putTargetStreamWithURL(targetURL, reader, -1, opts)
 	// TODO: See if this check is necessary.
 	switch e := err.ToGoError().(type) {
@@ -222,11 +215,6 @@ func mainPipe(ctx *cli.Context) error {
 	encKeyDB, err := validateAndCreateEncryptionKeys(ctx)
 	fatalIf(err, "Unable to parse encryption keys.")
 
-	// globalQuiet is true for no window size to get.
-	// We just need --quiet and --json here.
-	quiet := ctx.Bool("quiet")
-	json := ctx.Bool("json")
-
 	meta := map[string]string{}
 	if attr := ctx.String("attr"); attr != "" {
 		meta, err = getMetaDataEntry(attr)
@@ -236,12 +224,12 @@ func mainPipe(ctx *cli.Context) error {
 		meta["X-Amz-Tagging"] = tags
 	}
 	if len(ctx.Args()) == 0 {
-		err = pipe(ctx, "", nil, meta, quiet, json)
+		err = pipe(ctx, "", nil, meta)
 		fatalIf(err.Trace("stdout"), "Unable to write to one or more targets.")
 	} else {
 		// extract URLs.
 		URLs := ctx.Args()
-		err = pipe(ctx, URLs[0], encKeyDB, meta, quiet, json)
+		err = pipe(ctx, URLs[0], encKeyDB, meta)
 		fatalIf(err.Trace(URLs[0]), "Unable to write to one or more targets.")
 	}
 

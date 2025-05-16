@@ -440,9 +440,9 @@ func uploadSourceToTargetURL(ctx context.Context, uploadOpts uploadSourceToTarge
 		defer reader.Close()
 
 		if uploadOpts.updateProgressTotal {
-			pg, ok := uploadOpts.progress.(*progressBar)
+			ac, ok := uploadOpts.progress.(*accounter)
 			if ok {
-				pg.SetTotal(content.Size)
+				ac.SetTotal(content.Size)
 			}
 		}
 

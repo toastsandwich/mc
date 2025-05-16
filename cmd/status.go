@@ -22,7 +22,6 @@ import (
 	"sync/atomic"
 
 	"github.com/minio/mc/pkg/probe"
-	"github.com/minio/pkg/v3/console"
 )
 
 // Status implements a interface that can be used in quit mode or with progressbar.
@@ -139,111 +138,4 @@ func (qs *QuietStatus) errorIf(err *probe.Error, msg string) {
 
 func (qs *QuietStatus) fatalIf(err *probe.Error, msg string) {
 	fatalIf(err, "%s", msg)
-}
-
-// NewProgressStatus returns a progress status object
-func NewProgressStatus(hook io.Reader) Status {
-	return &ProgressStatus{
-		progressBar: newProgressBar(0),
-		hook:        hook,
-	}
-}
-
-// ProgressStatus shows a progressbar
-type ProgressStatus struct {
-	// Keep this as first element of struct because it guarantees 64bit
-	// alignment on 32 bit machines. atomic.* functions crash if operand is not
-	// aligned at 64bit. See https://github.com/golang/go/issues/599
-	counts int64
-	*progressBar
-	hook io.Reader
-}
-
-// Read implements the io.Reader interface
-func (ps *ProgressStatus) Read(p []byte) (n int, err error) {
-	ps.hook.Read(p)
-	return ps.progressBar.Read(p)
-}
-
-// SetCaption sets the caption of the progressbar
-func (ps *ProgressStatus) SetCaption(s string) {
-	ps.progressBar.SetCaption(s)
-}
-
-// SetCounts sets number of files uploaded
-func (ps *ProgressStatus) SetCounts(v int64) {
-	atomic.StoreInt64(&ps.counts, v)
-}
-
-// GetCounts returns number of files uploaded
-func (ps *ProgressStatus) GetCounts() int64 {
-	return atomic.LoadInt64(&ps.counts)
-}
-
-// AddCounts adds 'v' number of files uploaded.
-func (ps *ProgressStatus) AddCounts(v int64) {
-	atomic.AddInt64(&ps.counts, v)
-}
-
-// Get returns the current number of bytes
-func (ps *ProgressStatus) Get() int64 {
-	return ps.progressBar.Get()
-}
-
-// Total returns the total number of bytes
-func (ps *ProgressStatus) Total() int64 {
-	return ps.progressBar.Get()
-}
-
-// SetTotal sets the total of the progressbar
-func (ps *ProgressStatus) SetTotal(v int64) Status {
-	ps.progressBar.SetTotal(v)
-	return ps
-}
-
-// Add bytes to current number of bytes
-func (ps *ProgressStatus) Add(v int64) Status {
-	ps.Add64(v)
-	return ps
-}
-
-// Println prints line, ignored for quietstatus
-func (ps *ProgressStatus) Println(data ...interface{}) {
-	console.Eraseline()
-	console.Println(data...)
-}
-
-// PrintMsg prints message
-func (ps *ProgressStatus) PrintMsg(_ message) {
-}
-
-// Start is ignored for quietstatus
-func (ps *ProgressStatus) Start() {
-	ps.progressBar.Start()
-}
-
-// Finish displays the accounting summary
-func (ps *ProgressStatus) Finish() {
-	ps.progressBar.Finish()
-}
-
-// Update is ignored for quietstatus
-func (ps *ProgressStatus) Update() {
-	ps.progressBar.Update()
-}
-
-func (ps *ProgressStatus) errorIf(err *probe.Error, msg string) {
-	// remove progressbar
-	console.Eraseline()
-	errorIf(err, "%s", msg)
-
-	ps.progressBar.Update()
-}
-
-func (ps *ProgressStatus) fatalIf(err *probe.Error, msg string) {
-	// remove progressbar
-	console.Eraseline()
-	fatalIf(err, "%s", msg)
-
-	ps.progressBar.Update()
 }

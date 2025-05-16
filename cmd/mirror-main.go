@@ -908,17 +908,7 @@ func newMirrorJob(srcURL, dstURL string, opts mirrorOptions) *mirrorJob {
 	}
 
 	mj.parallel = newParallelManager(mj.statusCh)
-
-	// we'll define the status to use here,
-	// do we want the quiet status? or the progressbar
-	if globalQuiet || opts.isSummary {
-		mj.status = NewQuietStatus(mj.parallel)
-	} else if globalJSON {
-		mj.status = NewQuietStatus(mj.parallel)
-	} else {
-		mj.status = NewProgressStatus(mj.parallel)
-	}
-
+	mj.status = NewQuietStatus(mj.parallel)
 	return &mj
 }
 

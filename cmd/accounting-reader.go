@@ -142,7 +142,7 @@ func (c accountStat) String() string {
 func (a *accounter) Stat() accountStat {
 	var acntStat accountStat
 	a.finishOnce.Do(func() {
-		close(a.isFinished)
+		a.Close()
 		acntStat.Total = a.total
 		acntStat.Transferred = atomic.LoadInt64(&a.current)
 		acntStat.Speed, acntStat.Duration = a.write(atomic.LoadInt64(&a.current))
@@ -190,5 +190,10 @@ func (a *accounter) Read(p []byte) (n int, err error) {
 
 	n = len(p)
 	a.Add(int64(n))
+	return
+}
+
+func (a *accounter) Close() (err error) {
+	close(a.isFinished)
 	return
 }
