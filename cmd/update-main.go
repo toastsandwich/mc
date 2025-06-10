@@ -420,7 +420,7 @@ func getUpdateReaderFromURL(u *url.URL, transport http.RoundTripper) (io.ReadClo
 		return nil, errors.New(resp.Status)
 	}
 
-	return newProgressReader(resp.Body, "mc", resp.ContentLength), nil
+	return NewAccounterReader(resp.Body, resp.ContentLength), nil
 }
 
 func doUpdate(customReleaseURL, sha256Hex string, latestReleaseTime time.Time, releaseTag string, ok bool) (updateStatusMsg string, err *probe.Error) {

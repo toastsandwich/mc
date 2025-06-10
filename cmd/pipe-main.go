@@ -182,13 +182,7 @@ func pipe(ctx *cli.Context, targetURL string, encKeyDB map[string][]prefixSSEPai
 		checksum:         checksum,
 	}
 
-	var reader io.Reader
-	if !quiet && !json {
-		pg := newProgressBar(0)
-		reader = io.TeeReader(os.Stdin, pg)
-	} else {
-		reader = os.Stdin
-	}
+	var reader io.Reader = os.Stdin
 
 	n, err := putTargetStreamWithURL(targetURL, reader, -1, opts)
 	// TODO: See if this check is necessary.

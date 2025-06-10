@@ -144,7 +144,7 @@ func (qs *QuietStatus) fatalIf(err *probe.Error, msg string) {
 // NewProgressStatus returns a progress status object
 func NewProgressStatus(hook io.Reader) Status {
 	return &ProgressStatus{
-		progressBar: newProgressBar(0),
+		ProgressBar: NewProgressBar(0),
 		hook:        hook,
 	}
 }
@@ -155,19 +155,19 @@ type ProgressStatus struct {
 	// alignment on 32 bit machines. atomic.* functions crash if operand is not
 	// aligned at 64bit. See https://github.com/golang/go/issues/599
 	counts int64
-	*progressBar
+	*ProgressBar
 	hook io.Reader
 }
 
 // Read implements the io.Reader interface
 func (ps *ProgressStatus) Read(p []byte) (n int, err error) {
 	ps.hook.Read(p)
-	return ps.progressBar.Read(p)
+	return ps.ProgressBar.Read(p)
 }
 
 // SetCaption sets the caption of the progressbar
 func (ps *ProgressStatus) SetCaption(s string) {
-	ps.progressBar.SetCaption(s)
+	ps.ProgressBar.SetCaption(s)
 }
 
 // SetCounts sets number of files uploaded
@@ -187,23 +187,23 @@ func (ps *ProgressStatus) AddCounts(v int64) {
 
 // Get returns the current number of bytes
 func (ps *ProgressStatus) Get() int64 {
-	return ps.progressBar.Get()
+	return ps.ProgressBar.Get()
 }
 
 // Total returns the total number of bytes
 func (ps *ProgressStatus) Total() int64 {
-	return ps.progressBar.Get()
+	return ps.ProgressBar.Get()
 }
 
 // SetTotal sets the total of the progressbar
 func (ps *ProgressStatus) SetTotal(v int64) Status {
-	ps.progressBar.SetTotal(v)
+	ps.ProgressBar.SetTotal(v)
 	return ps
 }
 
 // Add bytes to current number of bytes
 func (ps *ProgressStatus) Add(v int64) Status {
-	ps.Add64(v)
+	ps.Add(v)
 	return ps
 }
 
@@ -219,17 +219,17 @@ func (ps *ProgressStatus) PrintMsg(_ message) {
 
 // Start is ignored for quietstatus
 func (ps *ProgressStatus) Start() {
-	ps.progressBar.Start()
+	ps.ProgressBar.Start()
 }
 
 // Finish displays the accounting summary
 func (ps *ProgressStatus) Finish() {
-	ps.progressBar.Finish()
+	ps.ProgressBar.Finish()
 }
 
 // Update is ignored for quietstatus
 func (ps *ProgressStatus) Update() {
-	ps.progressBar.Update()
+	ps.ProgressBar.Update()
 }
 
 func (ps *ProgressStatus) errorIf(err *probe.Error, msg string) {
@@ -237,7 +237,7 @@ func (ps *ProgressStatus) errorIf(err *probe.Error, msg string) {
 	console.Eraseline()
 	errorIf(err, "%s", msg)
 
-	ps.progressBar.Update()
+	ps.ProgressBar.Update()
 }
 
 func (ps *ProgressStatus) fatalIf(err *probe.Error, msg string) {
@@ -245,5 +245,5 @@ func (ps *ProgressStatus) fatalIf(err *probe.Error, msg string) {
 	console.Eraseline()
 	fatalIf(err, "%s", msg)
 
-	ps.progressBar.Update()
+	ps.ProgressBar.Update()
 }

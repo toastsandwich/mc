@@ -142,10 +142,8 @@ func mainPut(cliCtx *cli.Context) (e error) {
 
 	// Store a progress bar or an accounter
 	var pg ProgressReader
-
-	// Enable progress bar reader only during default mode.
-	if !globalQuiet && !globalJSON { // set up progress bar
-		pg = newProgressBar(totalBytes)
+	if !globalQuiet && !globalJSON {
+		pg = NewProgressBar(totalBytes)
 	} else {
 		pg = newAccounter(totalBytes)
 	}
@@ -175,16 +173,16 @@ func mainPut(cliCtx *cli.Context) (e error) {
 	for {
 		select {
 		case <-ctx.Done():
-			showLastProgressBar(pg, nil)
+			showLastProgressBar(pg)
 			return
 		case putURLs, ok := <-putURLsCh:
 			if !ok {
-				showLastProgressBar(pg, nil)
+				showLastProgressBar(pg)
 				return
 			}
 			if putURLs.Error != nil {
 				printPutURLsError(&putURLs)
-				showLastProgressBar(pg, putURLs.Error.ToGoError())
+				showLastProgressBar(pg)
 				return
 			}
 			urls := doCopy(ctx, doCopyOpts{
@@ -196,7 +194,7 @@ func mainPut(cliCtx *cli.Context) (e error) {
 				ifNotExists:      cliCtx.Bool("if-not-exists"),
 			})
 			if urls.Error != nil {
-				showLastProgressBar(pg, urls.Error.ToGoError())
+				showLastProgressBar(pg)
 				fatalIf(urls.Error.Trace(), "unable to upload")
 				return
 			}
@@ -217,22 +215,5 @@ func printPutURLsError(putURLs *URLs) {
 	} else {
 		errorIf(putURLs.Error.Trace(),
 			"Unable to upload.")
-	}
-}
-
-func showLastProgressBar(pg ProgressReader, e error) {
-	if e != nil {
-		// We only erase a line if we are displaying a progress bar
-		if !globalQuiet && !globalJSON {
-			console.Eraseline()
-		}
-		return
-	}
-	if progressReader, ok := pg.(*progressBar); ok {
-		progressReader.Finish()
-	} else {
-		if accntReader, ok := pg.(*accounter); ok {
-			printMsg(accntReader.Stat())
-		}
 	}
 }

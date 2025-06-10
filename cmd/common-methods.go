@@ -439,13 +439,6 @@ func uploadSourceToTargetURL(ctx context.Context, uploadOpts uploadSourceToTarge
 		}
 		defer reader.Close()
 
-		if uploadOpts.updateProgressTotal {
-			pg, ok := uploadOpts.progress.(*progressBar)
-			if ok {
-				pg.SetTotal(content.Size)
-			}
-		}
-
 		metadata := make(map[string]string, len(content.Metadata))
 		for k, v := range content.Metadata {
 			metadata[k] = v

@@ -18,6 +18,7 @@
 package cmd
 
 import (
+	"io"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -49,7 +50,7 @@ func newAccounter(total int64) *accounter {
 	acct := &accounter{
 		total:        total,
 		startTime:    time.Now(),
-		startValue:   0,
+		startValue:   total,
 		refreshRate:  time.Millisecond * 200,
 		isFinished:   make(chan struct{}),
 		currentValue: -1,
@@ -80,6 +81,49 @@ func (a *accounter) writer() {
 			a.Update()
 		}
 	}
+}
+
+// Update update with new values loaded atomically.
+func (a *accounter) Update() {
+	c := atomic.LoadInt64(&a.current)
+	if c != a.currentValue {
+		a.write(c)
+		a.currentValue = c
+	}
+}
+
+// Set sets the current value atomically.
+func (a *accounter) Set(n int64) *accounter {
+	atomic.StoreInt64(&a.current, n)
+	return a
+}
+
+// Get gets current value atomically
+func (a *accounter) Get() int64 {
+	return atomic.LoadInt64(&a.current)
+}
+
+func (a *accounter) SetTotal(n int64) {
+	atomic.StoreInt64(&a.total, n)
+}
+
+// Add add to current value atomically.
+func (a *accounter) Add(n int64) int64 {
+	return atomic.AddInt64(&a.current, n)
+}
+
+// Read implements Reader which internally updates current value.
+func (a *accounter) Read(p []byte) (n int, err error) {
+	defer func() {
+		// Upload retry can read one object twice; Avoid read to be greater than Total
+		if n, t := a.Get(), atomic.LoadInt64(&a.total); t > 0 && n > t {
+			a.Set(t)
+		}
+	}()
+
+	n = len(p)
+	a.Add(int64(n))
+	return
 }
 
 // accountStat cantainer for current stats captured.
@@ -150,45 +194,25 @@ func (a *accounter) Stat() accountStat {
 	return acntStat
 }
 
-// Update update with new values loaded atomically.
-func (a *accounter) Update() {
-	c := atomic.LoadInt64(&a.current)
-	if c != a.currentValue {
-		a.write(c)
-		a.currentValue = c
+type AccounterReader struct {
+	io.Reader
+	*accounter
+}
+
+func NewAccounterReader(reader io.Reader, total int64) *AccounterReader {
+	return &AccounterReader{reader, newAccounter(total)}
+}
+
+func (a *AccounterReader) Read(p []byte) (n int, err error) {
+	n, err = a.Reader.Read(p)
+	a.accounter.Add(int64(n))
+	return
+}
+
+func (a *AccounterReader) Close() (err error) {
+	printMsg(a.Stat())
+	if closer, ok := a.Reader.(io.Closer); ok {
+		return closer.Close()
 	}
-}
-
-// Set sets the current value atomically.
-func (a *accounter) Set(n int64) *accounter {
-	atomic.StoreInt64(&a.current, n)
-	return a
-}
-
-// Get gets current value atomically
-func (a *accounter) Get() int64 {
-	return atomic.LoadInt64(&a.current)
-}
-
-func (a *accounter) SetTotal(n int64) {
-	atomic.StoreInt64(&a.total, n)
-}
-
-// Add add to current value atomically.
-func (a *accounter) Add(n int64) int64 {
-	return atomic.AddInt64(&a.current, n)
-}
-
-// Read implements Reader which internally updates current value.
-func (a *accounter) Read(p []byte) (n int, err error) {
-	defer func() {
-		// Upload retry can read one object twice; Avoid read to be greater than Total
-		if n, t := a.Get(), atomic.LoadInt64(&a.total); t > 0 && n > t {
-			a.Set(t)
-		}
-	}()
-
-	n = len(p)
-	a.Add(int64(n))
 	return
 }

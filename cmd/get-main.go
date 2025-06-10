@@ -87,9 +87,8 @@ func mainGet(cliCtx *cli.Context) (e error) {
 
 	// Store a progress bar or an accounter
 	var pg ProgressReader
-	// Enable progress bar reader only during default mode.
-	if !globalQuiet && !globalJSON { // set up progress bar
-		pg = newProgressBar(totalBytes)
+	if !globalQuiet && !globalJSON {
+		pg = NewProgressBar(totalBytes)
 	} else {
 		pg = newAccounter(totalBytes)
 	}
@@ -115,16 +114,16 @@ func mainGet(cliCtx *cli.Context) (e error) {
 	for {
 		select {
 		case <-ctx.Done():
-			showLastProgressBar(pg, nil)
+			showLastProgressBar(pg)
 			return
 		case getURLs, ok := <-getURLsCh:
 			if !ok {
-				showLastProgressBar(pg, nil)
+				showLastProgressBar(pg)
 				return
 			}
 			if getURLs.Error != nil {
 				printGetURLsError(&getURLs)
-				showLastProgressBar(pg, getURLs.Error.ToGoError())
+				showLastProgressBar(pg)
 				return
 			}
 			urls := doCopy(ctx, doCopyOpts{
@@ -135,7 +134,7 @@ func mainGet(cliCtx *cli.Context) (e error) {
 			})
 			if urls.Error != nil {
 				e = urls.Error.ToGoError()
-				showLastProgressBar(pg, e)
+				showLastProgressBar(pg)
 				return
 			}
 		}
